@@ -3,7 +3,6 @@
 
 #define LEAST_HEAP (1<<16)
 #define MIN_ALLOC_SIZE (1<<4)
-#define my_malloc(size) ((heap_begin == NULL) ? heap_init_and_malloc(size) : _malloc(size))
 
 
 /* globals */
@@ -12,10 +11,7 @@ static struct node *head = NULL;
 static struct node *tail = NULL;
 
 /* declarations */
-void *_my_malloc(size_t);
-void *heap_init_and_malloc(size_t);
 int grow_heap(size_t);
-
 ////
 
 void *heap_init_and_malloc(size_t size) {
@@ -42,7 +38,7 @@ void *_my_malloc(size_t size) {
     struct node *n;
     n = head;
 
-    while ( n != NULL || n->is_used || (n->size < size)) {
+    while ( n != NULL && ( n->is_used || (n->size < size)) ) {
          n = n->next;
     }
 
@@ -57,7 +53,7 @@ void *_my_malloc(size_t size) {
     //we split the node if the resulting new node would be bigger than MIN_ALLOC_SIZE
     if (!n->is_used && n->size > size + sizeof(struct node) + MIN_ALLOC_SIZE) {
         struct node *new_node;
-        new_node = n + size + sizeof(n);
+        new_node = (struct node*) ((void*) n + size + sizeof(struct node));
         new_node->next = n->next;
         new_node->is_used = false;
         new_node->size = (n->size - size - sizeof(struct node));
@@ -68,10 +64,10 @@ void *_my_malloc(size_t size) {
             tail = new_node;
         }
 
-        return n + sizeof(struct node);
+        return (void*)n + sizeof(struct node);
     } else {
         n->is_used = true;
-        return n + sizeof(struct node);
+        return (void*)n + sizeof(struct node);
     }
 }
 
@@ -107,10 +103,6 @@ int grow_heap(size_t size) {
 
 }
 
-
-
-
-
-
-
-
+_Bool _is_malloc_init() {
+    return (heap_begin == NULL);
+}
