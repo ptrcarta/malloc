@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdio.h>
 #include "malloc.h"
 
 #define LEAST_HEAP (1<<16)
@@ -12,6 +13,7 @@ static struct node *tail = NULL;
 
 /* declarations */
 int grow_heap(size_t);
+void coalesce(struct node *);
 ////
 
 void *heap_init_and_malloc(size_t size) {
@@ -95,14 +97,84 @@ int grow_heap(size_t size) {
     new->size = grow_size - sizeof(struct node);
     new->next = NULL;
     new->is_used = false;
-
     tail->next = new;
-    tail = new;
+
+    if (tail->is_used) {
+        tail = new;
+    } else {
+        coalesce(tail);
+    }
 
     return 0;
 
 }
 
+void coalesce(struct node *n) {
+    struct node *snd;
+    while (!(n == NULL || n->next == NULL || n->is_used || n->next->is_used)) {
+        snd = n->next;
+        n->next = snd->next;
+        n->size = n->size + sizeof(struct node) + snd->size;
+    }
+}
+
 _Bool _is_malloc_init() {
     return (heap_begin == NULL);
+}
+
+/**
+* implementations of free
+* fast one is unsafe and performs suboptimal coalescing, but performs in O(1)
+*
+* other one needs to traverse the whole list of memory blocks, but won't corrupt the stack
+* if garbage is passed, and will coalesce the freed block with the previous one if that is
+* possible
+*
+*/
+void free_fast(void * n) {
+    struct node *f = n - sizeof(struct node);
+    f->is_used = 0;
+    coalesce(f);
+}
+
+void free_safe_backcoalescing(void * n) {
+    struct node *p = head;
+    struct node *f = n - sizeof(struct node);
+    while ( p != NULL && p < f) {
+         if (p->next == f) {
+             f->is_used = 0;
+             if (!p->is_used) {
+                 coalesce(p);
+             } else {
+                 coalesce(f);
+             }
+             return;
+         }
+         p = p->next;
+    }
+    
+    //BAIL  
+    ((void(*)(void))NULL)();
+}
+
+void my_free(void *n) {
+    free_fast(n);
+}
+
+
+
+/**
+* DEBUG FUNCTIONS
+*/
+
+void print_blocks() {
+    struct node *n;
+    n = head;
+    printf("ADDR\t\tsize\t\tstatus\n");
+    printf("____________________________________________________________\n");
+    while ( n != NULL) {
+         printf("%p\t%8lu\t%s\n", n, n->size, (n->is_used? "used" : "free"));
+         n = n->next;
+    }
+    printf("____________________________________________________________\n");
 }

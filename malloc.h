@@ -13,8 +13,11 @@ struct node {
     _Bool is_used;
 };
 
+
 /* declarations */
+void my_free(void*ptr); 
 _Bool _is_malloc_init();
 void *_my_malloc(size_t);
 void *heap_init_and_malloc(size_t);
+void print_blocks();
 #endif /* MALLOC_H_INCLUDED */
