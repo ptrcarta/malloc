@@ -40,7 +40,8 @@ void *_my_malloc(size_t size) {
     struct node *n;
     n = head;
 
-    while ( n != NULL && ( n->is_used || (n->size < size)) ) {
+    while ( n != NULL) {
+         if (!(n->is_used) && n->size >= size) break;
          n = n->next;
     }
 
@@ -53,14 +54,16 @@ void *_my_malloc(size_t size) {
     }
 
     //we split the node if the resulting new node would be bigger than MIN_ALLOC_SIZE
-    if (!n->is_used && n->size > size + sizeof(struct node) + MIN_ALLOC_SIZE) {
+    if (!n->is_used && n->size > (size + sizeof(struct node) + MIN_ALLOC_SIZE) ) {
         struct node *new_node;
         new_node = (struct node*) ((void*) n + size + sizeof(struct node));
         new_node->next = n->next;
         new_node->is_used = false;
         new_node->size = (n->size - size - sizeof(struct node));
+
         n->next = new_node;
         n->is_used = true;
+        n->size = size;
 
         if (tail == n) {
             tail = new_node;
@@ -113,6 +116,11 @@ void coalesce(struct node *n) {
     struct node *snd;
     while (!(n == NULL || n->next == NULL || n->is_used || n->next->is_used)) {
         snd = n->next;
+
+        if (tail == snd) {
+           tail = n; 
+        }
+
         n->next = snd->next;
         n->size = n->size + sizeof(struct node) + snd->size;
     }
@@ -130,6 +138,7 @@ _Bool _is_malloc_init() {
 * if garbage is passed, and will coalesce the freed block with the previous one if that is
 * possible
 *
+* strangely the traversing one seems to be faster after profiling
 */
 void free_fast(void * n) {
     struct node *f = n - sizeof(struct node);
@@ -140,9 +149,9 @@ void free_fast(void * n) {
 void free_safe_backcoalescing(void * n) {
     struct node *p = head;
     struct node *f = n - sizeof(struct node);
-    while ( p != NULL && p < f) {
-         if (p->next == f) {
-             f->is_used = 0;
+    while ( p != NULL && p <= f) {
+         if (p == f) {
+             f->is_used = false;
              if (!p->is_used) {
                  coalesce(p);
              } else {
@@ -154,11 +163,11 @@ void free_safe_backcoalescing(void * n) {
     }
     
     //BAIL  
-    ((void(*)(void))NULL)();
+    p = * (struct node **)(NULL + 1);
 }
 
 void my_free(void *n) {
-    free_fast(n);
+    free_safe_backcoalescing(n);
 }
 
 
@@ -170,10 +179,10 @@ void my_free(void *n) {
 void print_blocks() {
     struct node *n;
     n = head;
-    printf("ADDR\t\tsize\t\tstatus\n");
+    printf("ADDR\t\tnext\t\tsize\t\tstatus\n");
     printf("____________________________________________________________\n");
     while ( n != NULL) {
-         printf("%p\t%8lu\t%s\n", n, n->size, (n->is_used? "used" : "free"));
+         printf("%p\t%p\t%8lu\t%s\n", n, n->next, n->size, (n->is_used? "used" : "free"));
          n = n->next;
     }
     printf("____________________________________________________________\n");
